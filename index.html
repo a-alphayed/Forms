@@ -404,32 +404,48 @@ document.addEventListener('change', (e) => { if (e.target && (e.target.matches('
 
 // Driver License scanning via PDF417 (AAMVA) using ZXing
 let dlReader = null;
+let dlControls = null;
+async function getPreferredDeviceId(){
+  try{
+    const devices = await ZXingBrowser.BrowserMultiFormatReader.listVideoInputDevices();
+    if (!devices || devices.length === 0) return null;
+    const env = devices.find(d => /back|rear|environment/i.test(d.label));
+    return (env || devices[devices.length - 1]).deviceId;
+  } catch { return null; }
+}
 async function startLicenseScan(){
   try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('Camera not supported in this browser.'); return;
+    }
     if (!window.ZXingBrowser) { alert('Scanner not available on this device/browser.'); return; }
     const video = document.getElementById('dlVideo');
     video.style.display = 'block';
     const reader = new ZXingBrowser.BrowserMultiFormatReader();
     dlReader = reader;
-    // Use continuous decode with callback for better compatibility (iOS Safari)
-    const controls = await reader.decodeFromVideoDevice(undefined, 'dlVideo', (result, err) => {
+    const deviceId = await getPreferredDeviceId();
+    const constraints = deviceId
+      ? { video: { deviceId: { exact: deviceId } } }
+      : { video: { facingMode: { ideal: 'environment' } } };
+    // Continuous decode with constraints (better iOS support)
+    dlControls = await reader.decodeFromConstraints(constraints, 'dlVideo', (result, err) => {
       if (result) {
         const text = result?.getText?.() || result?.text || '';
         handleDLResult(text);
-        if (controls && controls.stop) controls.stop();
         stopLicenseScan();
       }
-      // ignore decode errors until a result is found
+      // ignore transient errors
     });
   } catch (err) {
-    console.warn('Scan cancelled or failed', err);
-    alert('Unable to start camera. Please allow camera access and try again.');
-  } finally {
-    // will stop in success path; no-op here
+    console.warn('Scan start failed', err);
+    alert('Unable to start camera. Please allow camera access in your browser settings and try again.');
+    stopLicenseScan();
   }
 }
 function stopLicenseScan(){
   try {
+    if (dlControls && dlControls.stop) { dlControls.stop(); }
+    dlControls = null;
     if (dlReader) { dlReader.reset(); dlReader = null; }
     const video = document.getElementById('dlVideo');
     const stream = video?.srcObject;
