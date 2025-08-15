@@ -77,6 +77,7 @@
         </div>
         <div class="field"><input type="text" id="evaluator" placeholder="Evaluator"></div>
       </div>
+      
       <div>
         <span class="pill">Vehicle: Tri‑Axle</span>
         <span class="pill">Start Score: <b id="startScore">100</b></span>
@@ -97,10 +98,14 @@
         <div class="result" id="resultBadge_top" aria-live="polite">Result: <span class="pass">PASS</span></div>
         <div class="row" style="justify-content:flex-end">
           <button class="btn" id="printBtn_top">Print/Save PDF</button>
+          <button class="btn" id="scanBtn_top" type="button">Scan Driver License</button>
           <button class="btn" id="resetBtn_top">Reset Form</button>
         </div>
       </div>
     </section>
+
+    <!-- Camera preview for DL scan -->
+    <video id="dlVideo" playsinline style="display:none;width:100%;max-height:240px;border-radius:8px;border:1px solid var(--border);"></video>
 
     <div id="sections"></div>
 
@@ -122,6 +127,7 @@
         <div class="result" id="resultBadge" aria-live="polite">Result: <span class="pass">PASS</span></div>
         <div class="row" style="justify-content:flex-end">
           <button class="btn" id="printBtn">Print/Save PDF</button>
+          <button class="btn" id="scanBtn" type="button">Scan Driver License</button>
           <button class="btn" id="resetBtn">Reset Form</button>
         </div>
       </div>
@@ -130,6 +136,7 @@
     <p class="muted">Safety policy: Any unsafe act, loss of control, or inability to competently operate manual transmission results in automatic failure.</p>
   </div>
 
+<script src="https://unpkg.com/@zxing/browser@latest"></script>
 <script>
 // Configuration
 const PASS_THRESHOLD = 80; // percent required to pass
@@ -392,6 +399,54 @@ document.getElementById('resetBtn_top').addEventListener('click', resetAll);
 document.getElementById('printBtn_top').addEventListener('click', () => window.print());
 document.getElementById('transmission').addEventListener('change', () => { applyTransmissionVisibility(); updateScores(); saveState(); });
 document.addEventListener('change', (e) => { if (e.target && (e.target.matches('input') || e.target.matches('select'))) saveState(); });
+
+// Driver License scanning via PDF417 (AAMVA) using ZXing
+let dlReader = null;
+async function startLicenseScan(){
+  try {
+    if (!window.ZXingBrowser) { alert('Scanner not available on this device/browser.'); return; }
+    const video = document.getElementById('dlVideo');
+    video.style.display = 'block';
+    const reader = new ZXingBrowser.BrowserMultiFormatReader();
+    dlReader = reader;
+    const result = await reader.decodeOnceFromVideoDevice(undefined, 'dlVideo');
+    const text = result?.getText?.() || result?.text || '';
+    handleDLResult(text);
+  } catch (err) {
+    console.warn('Scan cancelled or failed', err);
+  } finally {
+    stopLicenseScan();
+  }
+}
+function stopLicenseScan(){
+  try {
+    if (dlReader) { dlReader.reset(); dlReader = null; }
+    const video = document.getElementById('dlVideo');
+    const stream = video?.srcObject;
+    if (stream && stream.getTracks) stream.getTracks().forEach(t => t.stop());
+    if (video) { video.srcObject = null; video.style.display = 'none'; }
+  } catch {}
+}
+function parseAAMVA(text){
+  const get = (code) => {
+    const m = text.match(new RegExp(code + '([^\n\r]*)'));
+    return m && m[1] ? m[1].trim() : '';
+  };
+  const last = get('DCS');
+  const first = get('DAC');
+  const middle = get('DAD');
+  const licenseNum = get('DAQ');
+  return { name: [first, middle, last].filter(Boolean).join(' ').trim(), licenseNum };
+}
+function handleDLResult(text){
+  if (!text) return;
+  const { name, licenseNum } = parseAAMVA(text);
+  if (name) document.getElementById('driverName').value = name;
+  if (licenseNum) document.getElementById('license').value = licenseNum;
+  saveState();
+}
+if (document.getElementById('scanBtn')) document.getElementById('scanBtn').addEventListener('click', startLicenseScan);
+if (document.getElementById('scanBtn_top')) document.getElementById('scanBtn_top').addEventListener('click', startLicenseScan);
 </script>
 </body>
 </html>
