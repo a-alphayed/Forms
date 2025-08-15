@@ -1,0 +1,263 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Commercial Driving Road Test – iPad Version</title>
+<style>
+  :root{
+    --bg:#ffffff; --card:#ffffff; --ink:#111827; --muted:#6b7280; --accent:#2563eb;
+    --ok:#16a34a; --bad:#dc2626; --border:#e5e7eb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.35}
+  .wrap{max-width:980px;margin:0 auto;padding:16px}
+  h1{font-size:22px;margin:8px 0 12px}
+  h2{font-size:18px;margin:16px 0 8px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:14px}
+  .row{display:flex;flex-wrap:wrap;gap:10px}
+  .row > .field{flex:1 1 220px}
+  input[type="text"],input[type="date"]{width:100%;padding:12px 10px;font-size:16px;border:1px solid var(--border);border-radius:10px}
+  .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#eef2ff;border:1px solid #dbeafe;margin:4px 6px 0 0}
+  .pill b{font-variant-numeric:tabular-nums}
+  .item{display:flex;align-items:center;gap:12px;padding:8px 6px;border-radius:10px;border:1px solid transparent}
+  .item:active{background:#f3f4f6}
+  .cb{width:28px;height:28px;flex:0 0 28px}
+  .deduct{color:var(--muted);font-size:14px;margin-left:6px}
+  .section-footer{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)}
+  .btn{appearance:none;border:1px solid var(--border);background:#fff;padding:12px 16px;border-radius:12px;font-size:16px}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .result{font-weight:800}
+  .pass{color:var(--ok)}
+  .fail{color:var(--bad)}
+  .autofail{color:#b91c1c;font-weight:700}
+  .muted{color:var(--muted)}
+  .kpa{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Commercial Driving Road Test – Vocational Tri‑Axle (GVW 33,000 kg) – 18‑Speed Eaton</h1>
+    <div class="muted">Tap checkboxes to deduct points (starts at 100). Totals & PASS/FAIL update automatically. Reset for next applicant.</div>
+
+    <section class="card">
+      <h2>Driver Information</h2>
+      <div class="row">
+        <div class="field"><input type="text" id="driverName" placeholder="Applicant full name"></div>
+        <div class="field"><input type="date" id="testDate"></div>
+        <div class="field"><input type="text" id="license" placeholder="License #"></div>
+        <div class="field"><input type="text" id="evaluator" placeholder="Evaluator"></div>
+      </div>
+      <div>
+        <span class="pill">Vehicle: Tri‑Axle</span>
+        <span class="pill">Transmission: 18‑Speed Eaton (Manual)</span>
+        <span class="pill">Start Score: <b id="startScore">100</b></span>
+        <span class="pill">Pass threshold: <b id="passThreshold">80%</b> (no Auto‑Fail)</span>
+      </div>
+    </section>
+
+    <div id="sections"></div>
+
+    <section class="card">
+      <h2>Automatic Failure (any = FAIL)</h2>
+      <div id="autofailList"></div>
+    </section>
+
+    <section class="card">
+      <h2>Score Sheet</h2>
+      <div class="row">
+        <span class="pill">Deductions: <b id="totalDeduct">0</b> pts</span>
+        <span class="pill">Section Scores: <b id="sectionScores">—</b></span>
+        <span class="pill">Total Score: <b id="totalScore">100</b> / 100</span>
+        <span class="pill">Final %: <b id="finalPct">100%</b></span>
+      </div>
+      <div class="section-footer">
+        <div class="result" id="resultBadge">Result: <span class="pass">PASS</span></div>
+        <div class="row" style="justify-content:flex-end">
+          <button class="btn" id="printBtn">Print/Save PDF</button>
+          <button class="btn" id="resetBtn">Reset Form</button>
+        </div>
+      </div>
+    </section>
+
+    <p class="muted">Safety policy: Any deliberate unsafe act, loss of control, or inability to competently operate manual transmission results in automatic failure.</p>
+  </div>
+
+<script>
+// iPad‑friendly config (same logic, simpler layout)
+const sections = [
+  { title:"Pre‑Trip Inspection (Max 20)", max:20, items:[
+    {label:"Checks fluid levels, belts, hoses", deduct:2, repeats:1},
+    {label:"Inspects tires, rims, lug nuts", deduct:3, repeats:1},
+    {label:"Checks lights, signals, reflectors", deduct:2, repeats:1},
+    {label:"Ensures load is secure and compliant", deduct:4, repeats:1},
+    {label:"Air brake test – follows complete procedure", deduct:4, repeats:1},
+    {label:"Low air‑pressure warning device (≥ 413 kPa / 60 PSI)", deduct:3, repeats:1},
+    {label:"Air‑pressure build‑up time (344→620 kPa ≤ 3 min @ 1000–1200 rpm)", deduct:3, repeats:1},
+    {label:"Governor settings (cut‑out 690–1000 kPa; cut‑in ≥ 552 kPa)", deduct:3, repeats:1},
+    {label:"Air‑loss rate (≤ 3 PSI/min w/ service brakes applied)", deduct:3, repeats:1},
+    {label:"Spring brakes hold vehicle", deduct:3, repeats:1},
+    {label:"Air‑tank drains operate; discharge normal", deduct:3, repeats:1},
+  ]},
+  { title:"Cab Safety & Controls (Max 10)", max:10, items:[
+    {label:"Adjusts seat, mirrors, steering before moving", deduct:2, repeats:1},
+    {label:"Seat belt secured", deduct:3, repeats:1},
+    {label:"Knows location/function of controls", deduct:2, repeats:1},
+    {label:"Monitors gauges & warnings during operation", deduct:3, repeats:2},
+  ]},
+  { title:"Manual Transmission – 18‑Speed (Max 20)", max:20, items:[
+    {label:"Smooth start (no rollback)", deduct:2, repeats:2},
+    {label:"Proper gear selection during acceleration", deduct:2, repeats:6},
+    {label:"Double‑clutch/float correctly", deduct:2, repeats:6},
+    {label:"No gear grinding", deduct:2, repeats:6},
+    {label:"Downshifts smoothly & in control", deduct:2, repeats:4},
+  ]},
+  { title:"Basic Control Skills (Max 15)", max:15, items:[
+    {label:"Smooth acceleration & braking", deduct:2, repeats:4},
+    {label:"Maintains lane position", deduct:2, repeats:6},
+    {label:"Signals appropriately", deduct:2, repeats:4},
+    {label:"Controls speed for conditions", deduct:2, repeats:4},
+  ]},
+  { title:"Turning & Intersections (Max 15)", max:15, items:[
+    {label:"Mirror checks before/during turns", deduct:2, repeats:5},
+    {label:"Safe turn speed", deduct:2, repeats:5},
+    {label:"Proper lane/path through turn", deduct:2, repeats:5},
+    {label:"Checks for pedestrians & vehicles", deduct:2, repeats:5},
+  ]},
+  { title:"Highway & Traffic (Max 10)", max:10, items:[
+    {label:"Merges safely", deduct:2, repeats:3},
+    {label:"Maintains safe following distance", deduct:2, repeats:4},
+    {label:"Observes speed limits", deduct:2, repeats:3},
+    {label:"Proper lane changes", deduct:2, repeats:3},
+  ]},
+  { title:"Backing & Parking (Max 10)", max:10, items:[
+    {label:"Surroundings checked before backing", deduct:2, repeats:3},
+    {label:"Uses mirrors effectively", deduct:2, repeats:3},
+    {label:"Controls speed while backing", deduct:2, repeats:2},
+    {label:"Parks within designated area", deduct:2, repeats:2},
+  ]}
+];
+
+const autoFailItems = [
+  "Rolling through stop signs or red lights",
+  "Unsafe lane change causing others to brake/swerve",
+  "Striking curb, object, or vehicle",
+  "Loss of vehicle control",
+  "Inability to operate manual transmission competently",
+  "Ignoring traffic control devices"
+];
+
+const sectionsEl = document.getElementById('sections');
+sections.forEach((sec, si) => {
+  const card = document.createElement('section');
+  card.className = 'card';
+  const h = document.createElement('h2');
+  h.textContent = sec.title;
+  card.appendChild(h);
+
+  sec.items.forEach((it, ii) => {
+    for(let r=0; r<it.repeats; r++){
+      const row = document.createElement('div');
+      row.className = 'item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'cb';
+      cb.dataset.deduct = it.deduct;
+      cb.dataset.section = si;
+      cb.addEventListener('change', updateScores);
+      row.appendChild(cb);
+
+      const label = document.createElement('div');
+      label.innerHTML = (r===0)
+        ? `<div>${it.label} <span class="deduct">(-${it.deduct} each)</span></div>`
+        : `<div class="muted">repeat</div>`;
+      row.appendChild(label);
+
+      card.appendChild(row);
+    }
+  });
+
+  const foot = document.createElement('div');
+  foot.className = 'section-footer';
+  foot.innerHTML = `<div>Section deductions: <b id="secDeduct_${si}">0</b> pts</div>
+                    <div>Section score: <b id="secScore_${si}">${sec.max}</b> / ${sec.max}</div>`;
+  card.appendChild(foot);
+
+  sectionsEl.appendChild(card);
+});
+
+const autofailList = document.getElementById('autofailList');
+autoFailItems.forEach((txt, i) => {
+  const row = document.createElement('div');
+  row.className = 'item';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.className = 'cb';
+  cb.addEventListener('change', updateScores);
+  row.appendChild(cb);
+  const label = document.createElement('div');
+  label.innerHTML = `<div>${txt} <span class="autofail">Auto‑Fail</span></div>`;
+  row.appendChild(label);
+  autofailList.appendChild(row);
+});
+
+function computeSection(si){
+  const sec = sections[si];
+  const cbs = document.querySelectorAll(`input[type="checkbox"][data-section="${si}"]`);
+  let deduct = 0;
+  cbs.forEach(cb => { if (cb.checked) deduct += Number(cb.dataset.deduct); });
+  const capped = Math.min(deduct, sec.max);
+  const score = Math.max(0, sec.max - capped);
+  return {deduct, capped, score};
+}
+
+function updateScores(){
+  let totalScore = 0;
+  let totalMax = 0;
+  let totalDeductCapped = 0;
+  const sectionScores = [];
+  sections.forEach((_, si) => {
+    const {capped, score} = computeSection(si);
+    document.getElementById(`secDeduct_${si}`).textContent = capped;
+    document.getElementById(`secScore_${si}`).textContent = score;
+    totalScore += score;
+    totalMax += sections[si].max;
+    totalDeductCapped += capped;
+    sectionScores.push(score);
+  });
+
+  // Auto‑fail
+  let autoFail = false;
+  document.querySelectorAll('#autofailList input[type="checkbox"]').forEach(cb => {
+    if (cb.checked) autoFail = true;
+  });
+
+  const pct = Math.round((totalScore / totalMax) * 100);
+  document.getElementById('totalDeduct').textContent = totalDeductCapped;
+  document.getElementById('sectionScores').textContent = sectionScores.join(' + ');
+  document.getElementById('totalScore').textContent = `${totalScore}`;
+  document.getElementById('finalPct').textContent = `${pct}%`;
+
+  const resultBadge = document.getElementById('resultBadge');
+  if (autoFail){
+    resultBadge.innerHTML = 'Result: <span class="fail">FAIL (Auto‑Fail)</span>';
+  } else if (pct >= 80){
+    resultBadge.innerHTML = 'Result: <span class="pass">PASS</span>';
+  } else {
+    resultBadge.innerHTML = 'Result: <span class="fail">FAIL</span>';
+  }
+}
+
+updateScores();
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  document.querySelectorAll('input[type="text"], input[type="date"]').forEach(i => i.value = '');
+  document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+  updateScores();
+  window.scrollTo({top:0, behavior:'smooth'});
+});
+document.getElementById('printBtn').addEventListener('click', () => window.print());
+</script>
+</body>
+</html>
