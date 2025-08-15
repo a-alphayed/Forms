@@ -1,0 +1,345 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Gear Equipment Driving Evaluation</title>
+<style>
+  :root{ --bg:#ffffff; --card:#ffffff; --ink:#111827; --muted:#6b7280; --accent:#2563eb;
+         --ok:#16a34a; --bad:#dc2626; --border:#e5e7eb; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.35}
+  .wrap{max-width:980px;margin:0 auto;padding:16px}
+  header{margin-bottom:10px}
+  .headrow{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .logo{width:44px;height:44px;border-radius:8px;object-fit:contain;background:#000}
+  h1{font-size:clamp(18px,2.8vw,24px);margin:0}
+  .muted{color:var(--muted)}
+  h2{font-size:18px;margin:16px 0 8px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:14px}
+  .row{display:flex;flex-wrap:wrap;gap:10px}
+  .row > .field{flex:1 1 220px}
+  input[type="text"],input[type="date"],select{width:100%;padding:12px 10px;font-size:16px;border:1px solid var(--border);border-radius:10px;background:#fff}
+  .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#eef2ff;border:1px solid #dbeafe;margin:4px 6px 0 0}
+  .pill b{font-variant-numeric:tabular-nums}
+  .item{padding:6px 4px;margin:2px 0;border-radius:8px}
+  .line{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:nowrap}
+  .left{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+  .left .labeltext{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .deduct{color:var(--muted);font-size:14px;flex:0 0 auto}
+  .xbox{appearance:none;-webkit-appearance:none;width:28px;height:28px;border:2px solid var(--border);border-radius:6px;background:#fff;display:inline-grid;place-items:center;font-size:20px;line-height:1;cursor:pointer}
+  .xbox:focus{outline:2px solid #c7d2fe;outline-offset:2px}
+  .xbox:checked{border-color:var(--bad);background:#fff}
+  .xbox:checked::after{content:"\2717"; color:var(--bad)} /* red X */
+  .section-footer{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);gap:8px;flex-wrap:wrap}
+  .btn{appearance:none;border:1px solid var(--border);background:#fff;padding:12px 16px;border-radius:12px;font-size:16px}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .result{font-weight:800}
+  .pass{color:var(--ok)}
+  .fail{color:var(--bad)}
+  .autofail{color:#b91c1c;font-weight:700}
+  @media (max-width:540px){ .xbox{width:26px;height:26px;font-size:18px} .left .labeltext{max-width:60vw} }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="headrow">
+        <img class="logo" alt="Gear Equipment logo" src="Gear.png" />
+        <div>
+          <h1>Gear Equipment Driving Evaluation</h1>
+          <div class="muted">Tap boxes to deduct points (starts at 100). Auto totals & PASS/FAIL. Reset for next applicant.</div>
+        </div>
+      </div>
+    </header>
+
+    <section class="card">
+      <h2>Driver Information</h2>
+      <div class="row">
+        <div class="field"><input type="text" id="driverName" placeholder="Applicant full name"></div>
+        <div class="field"><input type="date" id="testDate"></div>
+        <div class="field"><input type="text" id="license" placeholder="License #"></div>
+        <div class="field">
+          <select id="transmission">
+            <option value="eaton">Eaton Manual Transmission (18‑Speed)</option>
+            <option value="auto">Automatic Transmission</option>
+          </select>
+        </div>
+        <div class="field"><input type="text" id="evaluator" placeholder="Evaluator"></div>
+      </div>
+      <div>
+        <span class="pill">Vehicle: Tri‑Axle</span>
+        <span class="pill">Start Score: <b id="startScore">100</b></span>
+        <span class="pill">Pass threshold: <b id="passThreshold">80%</b> (no Auto‑Fail)</span>
+      </div>
+    </section>
+
+    <!-- TOP SCORE SHEET SUMMARY -->
+    <section class="card">
+      <h2>Score Sheet (Live)</h2>
+      <div class="row">
+        <span class="pill">Deductions: <b id="totalDeduct_top">0</b> pts</span>
+        <span class="pill">Section Scores: <b id="sectionScores_top">—</b></span>
+        <span class="pill">Total Score: <b id="totalScore_top">100</b> / <b id="totalMax_top">100</b></span>
+        <span class="pill">Final %: <b id="finalPct_top">100%</b></span>
+      </div>
+      <div class="section-footer">
+        <div class="result" id="resultBadge_top">Result: <span class="pass">PASS</span></div>
+        <div class="row" style="justify-content:flex-end">
+          <button class="btn" id="printBtn_top">Print/Save PDF</button>
+          <button class="btn" id="resetBtn_top">Reset Form</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="sections"></div>
+
+    <section class="card">
+      <h2>Automatic Failure (any = FAIL)</h2>
+      <div id="autofailList"></div>
+    </section>
+
+    <!-- BOTTOM SCORE SHEET (duplicate) -->
+    <section class="card">
+      <h2>Score Sheet</h2>
+      <div class="row">
+        <span class="pill">Deductions: <b id="totalDeduct">0</b> pts</span>
+        <span class="pill">Section Scores: <b id="sectionScores">—</b></span>
+        <span class="pill">Total Score: <b id="totalScore">100</b> / <b id="totalMax">100</b></span>
+        <span class="pill">Final %: <b id="finalPct">100%</b></span>
+      </div>
+      <div class="section-footer">
+        <div class="result" id="resultBadge">Result: <span class="pass">PASS</span></div>
+        <div class="row" style="justify-content:flex-end">
+          <button class="btn" id="printBtn">Print/Save PDF</button>
+          <button class="btn" id="resetBtn">Reset Form</button>
+        </div>
+      </div>
+    </section>
+
+    <p class="muted">Safety policy: Any deliberate unsafe act, loss of control, or inability to competently operate manual transmission results in automatic failure.</p>
+  </div>
+
+<script>
+// Configuration
+const PASS_THRESHOLD = 80; // percent required to pass
+
+const sections = [
+  { title:"Pre‑Trip Inspection (Max 20)", max:20, items:[
+    {label:"Checks fluid levels, belts, hoses", deduct:2, repeats:1},
+    {label:"Inspects tires, rims, lug nuts", deduct:3, repeats:1},
+    {label:"Checks lights, signals, reflectors", deduct:2, repeats:1},
+    {label:"Ensures exterior compartments are secure and compliant", deduct:4, repeats:1},
+    {label:"Air brake test – follows complete procedure", deduct:4, repeats:1},
+    {label:"Low air‑pressure warning device (≥ 413 kPa / 60 PSI)", deduct:3, repeats:1},
+    {label:"Air‑pressure build‑up time (344→620 kPa ≤ 3 min @ 1000–1200 rpm)", deduct:3, repeats:1},
+    {label:"Governor settings (cut‑out 690–1000 kPa; cut‑in ≥ 552 kPa)", deduct:3, repeats:1},
+    {label:"Air‑loss rate (≤ 3 PSI/min w/ service brakes applied)", deduct:3, repeats:1},
+    {label:"Spring brakes hold vehicle", deduct:3, repeats:1},
+    {label:"Air‑tank drains operate; discharge normal", deduct:3, repeats:1},
+  ]},
+  { title:"Cab Safety & Controls (Max 10)", max:10, items:[
+    {label:"Adjusts seat, mirrors, steering before moving", deduct:2, repeats:1},
+    {label:"Seat belt secured", deduct:3, repeats:1},
+    {label:"Knows location/function of controls", deduct:2, repeats:1},
+    {label:"Monitors gauges & warnings during operation", deduct:3, repeats:2},
+  ]},
+  { title:"Manual Transmission – 18‑Speed (Max 20)", max:20, manualOnly:true, items:[
+    {label:"Smooth start (no rollback)", deduct:2, repeats:2},
+    {label:"Proper gear selection during acceleration", deduct:2, repeats:6},
+    {label:"Double‑clutch/float correctly", deduct:2, repeats:6},
+    {label:"No gear grinding", deduct:2, repeats:6},
+    {label:"Downshifts smoothly & in control", deduct:2, repeats:4},
+  ]},
+  { title:"Basic Control Skills (Max 15)", max:15, items:[
+    {label:"Smooth acceleration & braking", deduct:2, repeats:4},
+    {label:"Maintains lane position", deduct:2, repeats:6},
+    {label:"Signals appropriately", deduct:2, repeats:4},
+    {label:"Controls speed for conditions", deduct:2, repeats:4},
+  ]},
+  { title:"Turning & Intersections (Max 15)", max:15, items:[
+    {label:"Mirror checks before/during turns", deduct:2, repeats:5},
+    {label:"Safe turn speed", deduct:2, repeats:5},
+    {label:"Proper lane/path through turn", deduct:2, repeats:5},
+    {label:"Checks for pedestrians & vehicles", deduct:2, repeats:5},
+  ]},
+  { title:"Highway & Traffic (Max 10)", max:10, items:[
+    {label:"Merges safely", deduct:2, repeats:3},
+    {label:"Maintains safe following distance", deduct:2, repeats:4},
+    {label:"Observes speed limits", deduct:2, repeats:3},
+    {label:"Proper lane changes", deduct:2, repeats:3},
+  ]},
+  { title:"Backing & Parking (Max 10)", max:10, items:[
+    {label:"Surroundings checked before backing", deduct:2, repeats:3},
+    {label:"Uses mirrors effectively", deduct:2, repeats:3},
+    {label:"Controls speed while backing", deduct:2, repeats:2},
+    {label:"Parks within designated area", deduct:2, repeats:2},
+  ]}
+];
+
+const autoFailItems = [
+  "Rolling through stop signs or red lights",
+  "Unsafe lane change causing others to brake/swerve",
+  "Striking curb, object, or vehicle",
+  "Loss of vehicle control",
+  "Inability to operate manual transmission competently",
+  "Ignoring traffic control devices"
+];
+
+const sectionsEl = document.getElementById('sections');
+function isSectionActive(si){
+  const sec = sections[si];
+  const trans = document.getElementById('transmission')?.value || 'eaton';
+  if (sec.manualOnly && trans !== 'eaton') return false;
+  return true;
+}
+sections.forEach((sec, si) => {
+  const card = document.createElement('section'); card.className = 'card'; card.id = `section_${si}`;
+  const h = document.createElement('h2'); h.textContent = sec.title; card.appendChild(h);
+
+  sec.items.forEach((it) => {
+    const item = document.createElement('div'); item.className = 'item';
+    const line = document.createElement('div'); line.className = 'line';
+
+    const left = document.createElement('div'); left.className = 'left';
+    // boxes first
+    for (let r=0; r<it.repeats; r++) {
+      const cb = document.createElement('input');
+      cb.type='checkbox'; cb.className='xbox'; cb.dataset.deduct = it.deduct; cb.dataset.section = si;
+      cb.addEventListener('change', updateScores);
+      left.appendChild(cb);
+    }
+    const labelSpan = document.createElement('span'); labelSpan.className='labeltext'; labelSpan.textContent = it.label;
+    left.appendChild(labelSpan);
+
+    const right = document.createElement('div'); right.className='deduct'; right.textContent = `(-${it.deduct} each)`;
+
+    line.appendChild(left); line.appendChild(right);
+    item.appendChild(line);
+    card.appendChild(item);
+  });
+
+  const foot = document.createElement('div'); foot.className='section-footer';
+  foot.innerHTML = `<div>Section deductions: <b id="secDeduct_${si}">0</b> pts</div>
+                    <div>Section score: <b id="secScore_${si}">${sec.max}</b> / ${sec.max}</div>`;
+  card.appendChild(foot); sectionsEl.appendChild(card);
+});
+
+const autofailList = document.getElementById('autofailList');
+autoFailItems.forEach((txt) => {
+  const row = document.createElement('div'); row.className='item';
+  const line = document.createElement('div'); line.className='line';
+  const left = document.createElement('div'); left.className='left';
+  const cb = document.createElement('input'); cb.type='checkbox'; cb.className='xbox'; cb.addEventListener('change', updateScores);
+  left.appendChild(cb);
+  const labelSpan = document.createElement('span'); labelSpan.className='labeltext'; labelSpan.innerHTML = `${txt} <span class="autofail">Auto‑Fail</span>`;
+  left.appendChild(labelSpan);
+  const right = document.createElement('div'); right.className='deduct'; right.textContent = '';
+  line.appendChild(left); line.appendChild(right);
+  row.appendChild(line);
+  autofailList.appendChild(row);
+});
+
+function computeSection(si){
+  const sec = sections[si];
+  const cbs = document.querySelectorAll(`input.xbox[data-section="${si}"]`);
+  let deduct = 0;
+  cbs.forEach(cb => { if (cb.checked) deduct += Number(cb.dataset.deduct) || 0; });
+  const capped = Math.min(deduct, sec.max);
+  const score = Math.max(0, sec.max - capped);
+  return {deduct, capped, score};
+}
+
+function updateScores(){
+  let totalScore = 0;
+  let totalMax = 0;
+  let totalDeductCapped = 0;
+  const sectionScores = [];
+  sections.forEach((sec, si) => {
+    const active = isSectionActive(si);
+    const card = document.getElementById(`section_${si}`);
+    if (card) card.style.display = active ? '' : 'none';
+    // Ensure checkboxes are disabled and unchecked when inactive
+    document.querySelectorAll(`#section_${si} input.xbox`).forEach(cb => {
+      cb.disabled = !active;
+      if (!active) cb.checked = false;
+    });
+
+    if (!active){
+      // Show full score for inactive sections (not counted in totals)
+      const max = sec.max;
+      const sd = document.getElementById(`secDeduct_${si}`);
+      const ss = document.getElementById(`secScore_${si}`);
+      if (sd) sd.textContent = '0';
+      if (ss) ss.textContent = String(max);
+      return;
+    }
+
+    const res = computeSection(si);
+    document.getElementById(`secDeduct_${si}`).textContent = res.capped;
+    document.getElementById(`secScore_${si}`).textContent = res.score;
+    totalScore += res.score;
+    totalMax += sec.max;
+    totalDeductCapped += res.capped;
+    sectionScores.push(res.score);
+  });
+
+  let autoFail = false;
+  document.querySelectorAll('#autofailList input.xbox').forEach(cb => { if (cb.checked) autoFail = true; });
+
+  const pct = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+
+  const pairs = [
+    ['totalDeduct_top','sectionScores_top','totalScore_top','totalMax_top','finalPct_top','resultBadge_top'],
+    ['totalDeduct','sectionScores','totalScore','totalMax','finalPct','resultBadge']
+  ];
+  pairs.forEach(ids => {
+    document.getElementById(ids[0]).textContent = totalDeductCapped;
+    document.getElementById(ids[1]).textContent = sectionScores.join(' + ');
+    document.getElementById(ids[2]).textContent = String(totalScore);
+    document.getElementById(ids[3]).textContent = String(totalMax);
+    document.getElementById(ids[4]).textContent = `${pct}%`;
+    document.getElementById(ids[5]).innerHTML = autoFail
+      ? 'Result: <span class="fail">FAIL (Auto‑Fail)</span>'
+      : (pct >= PASS_THRESHOLD ? 'Result: <span class="pass">PASS</span>' : 'Result: <span class="fail">FAIL</span>');
+  });
+
+  // Keep the top pill in sync with current active total max
+  const ssEl = document.getElementById('startScore');
+  if (ssEl) ssEl.textContent = String(totalMax);
+}
+
+function applyTransmissionVisibility(){
+  sections.forEach((_, si) => {
+    const card = document.getElementById(`section_${si}`);
+    const active = isSectionActive(si);
+    if (card) card.style.display = active ? '' : 'none';
+    document.querySelectorAll(`#section_${si} input.xbox`).forEach(cb => {
+      cb.disabled = !active;
+      if (!active) cb.checked = false;
+    });
+  });
+}
+
+// Initialize threshold display and transmission-dependent visibility
+document.getElementById('passThreshold').textContent = `${PASS_THRESHOLD}%`;
+applyTransmissionVisibility();
+updateScores();
+
+function resetAll(){
+  document.querySelectorAll('input[type="text"], input[type="date"]').forEach(i => i.value = '');
+  document.querySelectorAll('input.xbox').forEach(cb => cb.checked = false);
+  document.getElementById('transmission').selectedIndex = 0;
+  updateScores();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+document.getElementById('resetBtn').addEventListener('click', resetAll);
+document.getElementById('printBtn').addEventListener('click', () => window.print());
+document.getElementById('resetBtn_top').addEventListener('click', resetAll);
+document.getElementById('printBtn_top').addEventListener('click', () => window.print());
+document.getElementById('transmission').addEventListener('change', () => { applyTransmissionVisibility(); updateScores(); });
+</script>
+</body>
+</html>
