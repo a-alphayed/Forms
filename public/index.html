@@ -406,6 +406,10 @@ document.addEventListener('change', (e) => { if (e.target && (e.target.matches('
 // Driver License scanning via PDF417 (AAMVA) using ZXing
 let dlReader = null;
 let dlControls = null;
+function isSafari(){
+  const ua = navigator.userAgent;
+  return /Safari\//.test(ua) && !/Chrome\//.test(ua) && !/CriOS\//.test(ua);
+}
 async function getPreferredDeviceId(){
   try{
     const devices = await ZXingBrowser.BrowserMultiFormatReader.listVideoInputDevices();
@@ -422,8 +426,18 @@ async function startLicenseScan(){
     if (!window.ZXingBrowser) { alert('Scanner not available on this device/browser.'); return; }
     const video = document.getElementById('dlVideo');
     video.style.display = 'block';
+    video.setAttribute('playsinline','true');
+    video.setAttribute('webkit-playsinline','true');
+    video.muted = true;
     const reader = new ZXingBrowser.BrowserMultiFormatReader();
     dlReader = reader;
+    // On Safari, prompt permission first to expose device labels
+    if (isSafari()) {
+      try {
+        const pre = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        pre.getTracks().forEach(t => t.stop());
+      } catch {}
+    }
     const deviceId = await getPreferredDeviceId();
     const constraints = deviceId
       ? { video: { deviceId: { exact: deviceId } } }
