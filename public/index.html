@@ -13,7 +13,7 @@
   .wrap{max-width:980px;margin:0 auto;padding:16px}
   header{margin-bottom:10px}
   .headrow{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-  .logo{width:44px;height:44px;border-radius:8px;object-fit:contain;background:#000}
+  .logo{width:44px;max-height:44px;height:auto;border-radius:8px;object-fit:contain;background:#000}
   h1{font-size:clamp(18px,2.8vw,24px);margin:0}
   .muted{color:var(--muted)}
   h2{font-size:18px;margin:16px 0 8px}
@@ -40,6 +40,15 @@
   .fail{color:var(--bad)}
   .autofail{color:#b91c1c;font-weight:700}
   @media (max-width:540px){ .xbox{width:26px;height:26px;font-size:18px} .left .labeltext{max-width:60vw} }
+
+  /* Print-friendly adjustments */
+  @media print{
+    .btn, select, .row .field input[type="text"], .row .field input[type="date"] { display:none !important }
+    body { color:#000 }
+    .xbox{ border-color:#000 }
+    .xbox:checked::after{ color:#000 }
+    header, .card{ break-inside: avoid }
+  }
 </style>
 </head>
 <body>
@@ -85,7 +94,7 @@
         <span class="pill">Final %: <b id="finalPct_top">100%</b></span>
       </div>
       <div class="section-footer">
-        <div class="result" id="resultBadge_top">Result: <span class="pass">PASS</span></div>
+        <div class="result" id="resultBadge_top" aria-live="polite">Result: <span class="pass">PASS</span></div>
         <div class="row" style="justify-content:flex-end">
           <button class="btn" id="printBtn_top">Print/Save PDF</button>
           <button class="btn" id="resetBtn_top">Reset Form</button>
@@ -110,7 +119,7 @@
         <span class="pill">Final %: <b id="finalPct">100%</b></span>
       </div>
       <div class="section-footer">
-        <div class="result" id="resultBadge">Result: <span class="pass">PASS</span></div>
+        <div class="result" id="resultBadge" aria-live="polite">Result: <span class="pass">PASS</span></div>
         <div class="row" style="justify-content:flex-end">
           <button class="btn" id="printBtn">Print/Save PDF</button>
           <button class="btn" id="resetBtn">Reset Form</button>
@@ -204,14 +213,20 @@ sections.forEach((sec, si) => {
 
     const left = document.createElement('div'); left.className = 'left';
     // boxes first
+    let firstCbId = null;
     for (let r=0; r<it.repeats; r++) {
       const cb = document.createElement('input');
       cb.type='checkbox'; cb.className='xbox'; cb.dataset.deduct = it.deduct; cb.dataset.section = si;
-      cb.addEventListener('change', updateScores);
+      const id = `cb_${si}_${r}`;
+      cb.id = id;
+      if (firstCbId === null) firstCbId = id;
+      cb.addEventListener('change', () => { updateScores(); saveState(); });
       left.appendChild(cb);
     }
-    const labelSpan = document.createElement('span'); labelSpan.className='labeltext'; labelSpan.textContent = it.label;
-    left.appendChild(labelSpan);
+    const labelEl = document.createElement('label'); labelEl.className='labeltext';
+    if (firstCbId) labelEl.htmlFor = firstCbId;
+    labelEl.textContent = it.label;
+    left.appendChild(labelEl);
 
     const right = document.createElement('div'); right.className='deduct'; right.textContent = `(-${it.deduct} each)`;
 
@@ -322,15 +337,51 @@ function applyTransmissionVisibility(){
   });
 }
 
+// Persistence helpers
+function saveState(){
+  try {
+    const state = {
+      driverName: document.getElementById('driverName')?.value || '',
+      testDate: document.getElementById('testDate')?.value || '',
+      license: document.getElementById('license')?.value || '',
+      evaluator: document.getElementById('evaluator')?.value || '',
+      transmission: document.getElementById('transmission')?.value || 'eaton',
+      checks: Array.from(document.querySelectorAll('input.xbox')).map(cb => cb.checked)
+    };
+    localStorage.setItem('evalState', JSON.stringify(state));
+  } catch {}
+}
+function loadState(){
+  try {
+    const raw = localStorage.getItem('evalState');
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (s) {
+      if (document.getElementById('driverName')) document.getElementById('driverName').value = s.driverName || '';
+      if (document.getElementById('testDate')) document.getElementById('testDate').value = s.testDate || '';
+      if (document.getElementById('license')) document.getElementById('license').value = s.license || '';
+      if (document.getElementById('evaluator')) document.getElementById('evaluator').value = s.evaluator || '';
+      if (document.getElementById('transmission')) document.getElementById('transmission').value = s.transmission || 'eaton';
+      applyTransmissionVisibility();
+      const cbs = Array.from(document.querySelectorAll('input.xbox'));
+      (s.checks || []).forEach((val, i) => { if (cbs[i]) cbs[i].checked = !!val; });
+      updateScores();
+    }
+  } catch {}
+}
+
 // Initialize threshold display and transmission-dependent visibility
 document.getElementById('passThreshold').textContent = `${PASS_THRESHOLD}%`;
 applyTransmissionVisibility();
+loadState();
+if (!document.getElementById('testDate').value) { document.getElementById('testDate').valueAsDate = new Date(); }
 updateScores();
 
 function resetAll(){
   document.querySelectorAll('input[type="text"], input[type="date"]').forEach(i => i.value = '');
   document.querySelectorAll('input.xbox').forEach(cb => cb.checked = false);
   document.getElementById('transmission').selectedIndex = 0;
+  try { localStorage.removeItem('evalState'); } catch {}
   updateScores();
   window.scrollTo({top:0, behavior:'smooth'});
 }
@@ -339,7 +390,8 @@ document.getElementById('resetBtn').addEventListener('click', resetAll);
 document.getElementById('printBtn').addEventListener('click', () => window.print());
 document.getElementById('resetBtn_top').addEventListener('click', resetAll);
 document.getElementById('printBtn_top').addEventListener('click', () => window.print());
-document.getElementById('transmission').addEventListener('change', () => { applyTransmissionVisibility(); updateScores(); });
+document.getElementById('transmission').addEventListener('change', () => { applyTransmissionVisibility(); updateScores(); saveState(); });
+document.addEventListener('change', (e) => { if (e.target && (e.target.matches('input') || e.target.matches('select'))) saveState(); });
 </script>
 </body>
 </html>
