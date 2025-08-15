@@ -1,6 +1,4 @@
 
----
----
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -63,7 +61,7 @@
           <h1>Gear Equipment Driving Evaluation</h1>
           <div class="muted">Tap boxes to deduct points (starts at 100). Auto totals & PASS/FAIL. Reset for next applicant.</div>
         </div>
-        <span class="version" id="versionBadge">v{{ site.github.build_revision | slice: 0, 7 }}</span>
+        <span class="version" id="versionBadge">v</span>
       </div>
     </header>
 
@@ -459,17 +457,14 @@ function handleDLResult(text){
 }
 if (document.getElementById('scanBtn')) document.getElementById('scanBtn').addEventListener('click', startLicenseScan);
 if (document.getElementById('scanBtn_top')) document.getElementById('scanBtn_top').addEventListener('click', startLicenseScan);
-// Version badge fallback (if Jekyll Liquid not processed)
+// Version badge from latest commit via GitHub API
 (function(){
   const el = document.getElementById('versionBadge');
   if (!el) return;
-  const raw = (el.textContent || '').trim();
-  if (raw.includes('{{')) {
-    fetch('https://api.github.com/repos/a-alphayed/road-test-eval/commits/main')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { const sha = d && d.sha ? String(d.sha).slice(0,7) : ''; if (sha) el.textContent = 'v' + sha; })
-      .catch(() => {});
-  }
+  fetch('https://api.github.com/repos/a-alphayed/road-test-eval/commits/main')
+    .then(r => r.ok ? r.json() : null)
+    .then(d => { const sha = d && d.sha ? String(d.sha).slice(0,7) : ''; if (sha) el.textContent = 'v' + sha; })
+    .catch(() => {});
 })();
 </script>
 </body>
