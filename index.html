@@ -130,11 +130,13 @@
     </section>
 
     <!-- Camera preview for DL scan -->
-    <video id="dlVideo" playsinline style="display:none;width:100%;max-height:240px;border-radius:8px;border:1px solid var(--border);"></video>
+    <video id="dlVideo" playsinline muted autoplay style="display:none;width:100%;max-height:240px;border-radius:8px;border:1px solid var(--border);"></video>
 
     <p class="muted">Safety policy: Any unsafe act, loss of control, or inability to competently operate manual transmission results in automatic failure.</p>
   </div>
 
+<script src="https://unpkg.com/@zxing/browser@latest"></script>
+<script src="https://unpkg.com/@zxing/library@latest"></script>
 <script src="https://unpkg.com/@zxing/browser@latest"></script>
 <script>
 // Configuration
@@ -408,13 +410,21 @@ async function startLicenseScan(){
     video.style.display = 'block';
     const reader = new ZXingBrowser.BrowserMultiFormatReader();
     dlReader = reader;
-    const result = await reader.decodeOnceFromVideoDevice(undefined, 'dlVideo');
-    const text = result?.getText?.() || result?.text || '';
-    handleDLResult(text);
+    // Use continuous decode with callback for better compatibility (iOS Safari)
+    const controls = await reader.decodeFromVideoDevice(undefined, 'dlVideo', (result, err) => {
+      if (result) {
+        const text = result?.getText?.() || result?.text || '';
+        handleDLResult(text);
+        if (controls && controls.stop) controls.stop();
+        stopLicenseScan();
+      }
+      // ignore decode errors until a result is found
+    });
   } catch (err) {
     console.warn('Scan cancelled or failed', err);
+    alert('Unable to start camera. Please allow camera access and try again.');
   } finally {
-    stopLicenseScan();
+    // will stop in success path; no-op here
   }
 }
 function stopLicenseScan(){
