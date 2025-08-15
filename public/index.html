@@ -71,8 +71,7 @@
         <div class="field"><input type="text" id="license" placeholder="License #"></div>
         <div class="field">
           <select id="transmission">
-            <option value="eaton">Eaton Manual Transmission (18‑Speed)</option>
-            <option value="auto">Automatic Transmission</option>
+            <option value="eaton">Manual Transmission (18‑Speed)</option>
           </select>
         </div>
         <div class="field"><input type="text" id="evaluator" placeholder="Evaluator"></div>
@@ -127,7 +126,7 @@
       </div>
     </section>
 
-    <p class="muted">Safety policy: Any deliberate unsafe act, loss of control, or inability to competently operate manual transmission results in automatic failure.</p>
+    <p class="muted">Safety policy: Any unsafe act, loss of control, or inability to competently operate manual transmission results in automatic failure.</p>
   </div>
 
 <script>
@@ -141,9 +140,9 @@ const sections = [
     {label:"Checks lights, signals, reflectors", deduct:2, repeats:1},
     {label:"Ensures exterior compartments are secure and compliant", deduct:4, repeats:1},
     {label:"Air brake test – follows complete procedure", deduct:4, repeats:1},
-    {label:"Low air‑pressure warning device (≥ 413 kPa / 60 PSI)", deduct:3, repeats:1},
-    {label:"Air‑pressure build‑up time (344→620 kPa ≤ 3 min @ 1000–1200 rpm)", deduct:3, repeats:1},
-    {label:"Governor settings (cut‑out 690–1000 kPa; cut‑in ≥ 552 kPa)", deduct:3, repeats:1},
+    {label:"Low air‑pressure warning device (≥ 60 PSI)", deduct:3, repeats:1},
+    {label:"Air‑pressure build‑up time (50→90 PSI ≤ 3 min @ 1000–1200 rpm)", deduct:3, repeats:1},
+    {label:"Governor settings (cut‑out 100–145 PSI; cut‑in ≥ 80 PSI)", deduct:3, repeats:1},
     {label:"Air‑loss rate (≤ 3 PSI/min w/ service brakes applied)", deduct:3, repeats:1},
     {label:"Spring brakes hold vehicle", deduct:3, repeats:1},
     {label:"Air‑tank drains operate; discharge normal", deduct:3, repeats:1},
