@@ -132,7 +132,13 @@
     </section>
 
     <!-- Camera preview for DL scan -->
-    <video id="dlVideo" playsinline muted autoplay style="display:none;width:100%;max-height:240px;border-radius:8px;border:1px solid var(--border);"></video>
+    <div id="dlWrap" style="display:none">
+      <div class="row" style="justify-content:flex-end;gap:8px;margin:6px 0">
+        <select id="cameraSelect" class="btn" style="display:none"></select>
+        <button class="btn" id="stopScanBtn" type="button" style="display:none">Stop Camera</button>
+      </div>
+      <video id="dlVideo" playsinline muted autoplay style="width:100%;max-height:240px;border-radius:8px;border:1px solid var(--border);"></video>
+    </div>
 
     <p class="muted">Safety policy: Any unsafe act, loss of control, or inability to competently operate manual transmission results in automatic failure.</p>
   </div>
@@ -423,8 +429,9 @@ async function startLicenseScan(){
       alert('Camera not supported in this browser.'); return;
     }
     if (!window.ZXingBrowser) { alert('Scanner not available on this device/browser.'); return; }
+    const wrap = document.getElementById('dlWrap');
     const video = document.getElementById('dlVideo');
-    video.style.display = 'block';
+    wrap.style.display = 'block';
     video.setAttribute('playsinline','true');
     video.setAttribute('webkit-playsinline','true');
     video.muted = true;
@@ -438,18 +445,51 @@ async function startLicenseScan(){
       } catch {}
     }
     const deviceId = await getPreferredDeviceId();
-    const constraints = deviceId
-      ? { video: { deviceId: { exact: deviceId } } }
-      : { video: { facingMode: { ideal: 'environment' } } };
-    // Continuous decode with constraints (better iOS support)
-    dlControls = await reader.decodeFromConstraints(constraints, 'dlVideo', (result, err) => {
+    let constraints = null;
+    if (deviceId) {
+      constraints = { video: { deviceId: { exact: deviceId } } };
+    } else {
+      constraints = { video: { facingMode: { exact: 'environment' } } };
+    }
+    const runDecode = async (cons) => dlControls = await reader.decodeFromConstraints(cons, 'dlVideo', onDecode);
+    const onDecode = (result, err) => {
       if (result) {
         const text = result?.getText?.() || result?.text || '';
         handleDLResult(text);
         stopLicenseScan();
       }
-      // ignore transient errors
-    });
+    };
+    // Continuous decode with constraints (better iOS support)
+    try {
+      await runDecode(constraints);
+    } catch (e1) {
+      try {
+        await runDecode({ video: { facingMode: { ideal: 'environment' } } });
+      } catch (e2) {
+        await runDecode({ video: true });
+      }
+    }
+    try {
+      const devices = await ZXingBrowser.BrowserMultiFormatReader.listVideoInputDevices();
+      const select = document.getElementById('cameraSelect');
+      const stopBtn = document.getElementById('stopScanBtn');
+      stopBtn.style.display = 'inline-block';
+      if (devices && devices.length > 1) {
+        select.innerHTML = '';
+        devices.forEach((d) => {
+          const opt = document.createElement('option');
+          opt.value = d.deviceId; opt.textContent = d.label || ('Camera ' + (select.options.length+1));
+          select.appendChild(opt);
+        });
+        select.style.display = 'inline-block';
+        select.onchange = async (e) => {
+          const id = e.target.value;
+          if (dlControls && dlControls.stop) dlControls.stop();
+          dlControls = await dlReader.decodeFromConstraints({ video: { deviceId: { exact: id } } }, 'dlVideo', onDecode);
+        };
+      }
+      stopBtn.onclick = () => stopLicenseScan();
+    } catch {}
   } catch (err) {
     console.warn('Scan start failed', err);
     alert('Unable to start camera. Please allow camera access in your browser settings and try again.');
@@ -461,10 +501,12 @@ function stopLicenseScan(){
     if (dlControls && dlControls.stop) { dlControls.stop(); }
     dlControls = null;
     if (dlReader) { dlReader.reset(); dlReader = null; }
+    const wrap = document.getElementById('dlWrap');
     const video = document.getElementById('dlVideo');
     const stream = video?.srcObject;
     if (stream && stream.getTracks) stream.getTracks().forEach(t => t.stop());
-    if (video) { video.srcObject = null; video.style.display = 'none'; }
+    if (video) { video.srcObject = null; }
+    if (wrap) { wrap.style.display = 'none'; }
   } catch {}
 }
 function parseAAMVA(text){
